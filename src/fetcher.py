@@ -17,6 +17,7 @@ class Fetcher(object): # is quite easy, we don't even need to login to get topic
     def __init__(self, user_id  = '34852019', group_name = "all"): # default get all , user_id default is mine
         self.user_id = user_id  # this is the wanted people
         self.group_name = group_name
+
     def fetch(self, url = "http://www.douban.com/group/topic/"):
         print 'fetch url: ', url
         req = urllib2.Request(url)
@@ -25,20 +26,15 @@ class Fetcher(object): # is quite easy, we don't even need to login to get topic
         url_handler.close()
         return content
 
-
     def get_user_group(self): # get which group the user join
         user_group_homepage_url = "http://www.douban.com/group/people/" + str(self.user_id) + "/joins"
-        content = self.fetch(self,url = user_group_homepage_url)
-
+        content = self.fetch(url = user_group_homepage_url)
+        parser = group_url_lister()
+        parser.feed(content)
+        parser.close()
+        return parser.urls
 
 if __name__ == "__main__":
     fe = Fetcher()
-    content = fe.fetch("http://www.douban.com/group/people/ffnowaygo/joins")
-    parser = group_url_lister()
-    parser.feed(content)
-    parser.close()
-    for i in parser.urls : print i
-    fi = open("test.html", 'r+')
-    fi.write(content)
-
-    difflib.context_diff(content, fi.read())
+    urls = fe.get_user_group()
+    for i in urls: print i

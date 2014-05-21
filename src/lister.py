@@ -23,7 +23,6 @@ class group_url_lister(SGMLParser):
     def start_div(self, attrs):
         for k,v in attrs:
             if k== 'class' and v == 'title':
-                print k,v
                 self.in_div = True
 
     def end_div(self):
