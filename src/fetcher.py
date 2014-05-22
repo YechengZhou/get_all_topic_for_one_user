@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 author: Yecheng Zhou
 Date: 2014/5/20 Fuck, it is 520, but i'm facing to the a stupid thinkpad, WTF
@@ -6,7 +7,7 @@ This is a fucking fetcher to get the info we need.
 """
 import urllib2
 import difflib
-from lister import group_url_lister
+from lister import group_url_lister , author_lister
 from sgmllib import SGMLParser
 import urllib
 import cookielib
@@ -37,4 +38,7 @@ class Fetcher(object): # is quite easy, we don't even need to login to get topic
 if __name__ == "__main__":
     fe = Fetcher()
     urls = fe.get_user_group()
+    content = fe.fetch(urls[0])
+    #al = author_lister(urls)
+    #print
     for i in urls: print i
