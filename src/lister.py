@@ -9,6 +9,7 @@ This is a fucking fetcher to get the info we need.
 import urllib2
 import sys
 import difflib
+import logging
 from sgmllib import SGMLParser
 from myStack import myStack
 import urllib
@@ -16,19 +17,11 @@ import cookielib
 from lxml import html as HTML
 
 
-def current_frame(): # return the frame object for the caller'stack frame
-    try:
-        raise Exception
-    except:
-        return sys.exc_info()[2].tb_frame.f_back
-
-
 class group_url_lister(SGMLParser):
     def reset(self):
         SGMLParser.reset(self)
         self.urls = []
         self.in_div = False
-
 
     def start_div(self, attrs):
         for k, v in attrs:
@@ -44,7 +37,6 @@ class group_url_lister(SGMLParser):
             if href:
                 self.urls.extend(href)
                 self.in_div = False
-
 
 class discussion_page_user_finder(object):
     def __init__(self, target_page, internet_or_file):
@@ -92,8 +84,8 @@ class author_lister(SGMLParser):  # content of http://www.douban.com/group/douba
     """
     def __init__(self):
         SGMLParser.reset(self)
-        self.author_name_list = myStack(100)
-        self.author_link_list = myStack(100)
+        self.author_name_list = myStack(25)
+        self.author_link_list = myStack(25)
         self.in_right_td = False
         self.in_user_a = False
 
@@ -139,13 +131,43 @@ class author_lister(SGMLParser):  # content of http://www.douban.com/group/douba
         if self.in_user_a:
             self.author_name_list.push(data)
 
+class topic_liter(SGMLParser):
+    """
+    <td class="title">
+        <a href="http://www.douban.com/group/topic/53402791/" title="苦逼小编来晒公司发的端午粽子！求关注！" class="">苦逼小编来晒公司发的端午粽子！求关注！</a>
+    </td>
+    """
+    def __init__(self):
+        SGMLParser.reset(self)
+        self.in_td = False
+        self.topic_link_list = myStack(25)  ## 默认情况下 一页只有25个 topic
+        self.topic_name_list = myStack(25)
 
+    def start_td(self,attrs):
+        if len(attrs) == 1 and attrs[0] == ('class','title'):
+            self.in_td = True
 
+    def end_td(self):
+        self.in_td = False
 
-# 简单粗暴法
-
-def find_user_topic(content):
-    pass
+    def start_a(self,attrs):
+        href_pushed = False
+        name_pushed = False
+        if self.in_td and len(attrs) == 3:
+            for k,v in attrs:
+                if k == 'href':
+                    self.topic_link_list.push(v)
+                    href_pushed += True
+                if href_pushed and k == 'title':
+                    self.topic_name_list.push(v)
+                    name_pushed = True
+                if href_pushed and k == 'class' and v == '' and name_pushed:
+                    href_pushed = False
+                    name_pushed = False
+            if href_pushed or name_pushed:
+                self.topic_link_list.pop()
+    def end_a(self):
+        pass
 
 class group_lister(SGMLParser):
     """
@@ -189,6 +211,32 @@ def find_user_topic_in_current_page_by_userlink(content,user_link):
     else:
         return index
 
+
+class douban_group_topic_finder_by_use():
+
+    def __init__(self,user_link = None, user_name = None):
+        self.user_link = user_link
+        self.user_name = user_name
+        self.joined_group_dic = None
+
+    def get_groups_user_join(self):
+        url_handler = urllib2.urlopen(self.user_link)
+        content = url_handler.read()
+        url_handler.close()
+
+        gl = group_lister()
+        gl.feed(content)
+        self.joined_group_dic = gl.dic_name_href  # 小组名为key url为value
+
+    def find_user_topics(self):
+        self.get_groups_user_join()
+        if self.joined_group_dic == None or len(self.joined_group_dic) == 0:
+            raise "This User have no group joined, so he has no right to publish topics"
+        for k,v in self.joined_group_dic:
+            logging.DEBUG("scraping group %s, link %s" % k,v)
+            #http://www.douban.com/group/douban911/discussion?start=0
+            v += "discussion"
+            # TODO 遍历帖子
 if __name__ == '__main__':
 
 
@@ -213,5 +261,11 @@ if __name__ == '__main__':
     #ff.write(urllib2.urlopen('http://www.douban.com/group/douban911/discussion?start=0').read())
     content = ff.read()
 
-    print ""
+    al = author_lister()
+    al.feed(content)
+
+    tl = topic_liter()
+    tl.feed(content)
+
+    print al.author_link_list
 

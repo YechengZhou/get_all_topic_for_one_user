@@ -52,8 +52,9 @@ class myStack():
     def __str__(self):
         temp_l = []
         for i in self.stack:
-            print temp_l.append(i)
+            temp_l.append(i)
         return '\n'.join(temp_l)
+
 
 if __name__ == '__main__':
     s = myStack()
