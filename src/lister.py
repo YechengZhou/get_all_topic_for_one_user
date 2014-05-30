@@ -46,12 +46,18 @@ class group_url_lister(SGMLParser):
                 self.in_div = False
 
 
-class user_finder_discussion_page(object):
-    def __init__(self, target_page):
+class discussion_page_user_finder(object):
+    def __init__(self, target_page, internet_or_file):
         self.target_page = target_page
-        handler_temp = urllib2.urlopen(self.target_page)
-        self.content = handler_temp.read()
+        # true means read from internet, false means read from local file
+        if internet_or_file:
+            handler_temp = urllib2.urlopen(self.target_page)
+            self.content = handler_temp.read()
+        else:
+            handler_temp = open(self.target_page,'r')
+            self.content = handler_temp.read()
         handler_temp.close()
+
 
     def find(self, user_main_page_url=None, username=None):
         """
@@ -64,87 +70,148 @@ class user_finder_discussion_page(object):
         """
         assert user_main_page_url or username, "Please provide at least one para from user_main_page_url and username for %s" % "find"
         try:
-            if self.content.find(user_main_page_url):
-                return True, "url"
+            print user_main_page_url, self.target_page
+            loc_index = self.content.find(user_main_page_url)
+            if loc_index != -1:
+                return True, "url", loc_index
         except:
             print "find user_main_page_url failed in %s" % self.target_page
 
         try:
-            if self.content.find(username):
-                return True, "username"
+            print username, self.target_page
+            loc_index = self.content.find(username)
+            if loc_index != -1:
+                return True, "username", loc_index
         except:
             print "find username failed in %s" % self.target_page
 
 
 class author_lister(SGMLParser):  # content of http://www.douban.com/group/douban911/discussion?start=50 should be feed
-
-    def __init__(self, user_home_page_url):
+    """
+    list all authors in this page, restore in list
+    """
+    def __init__(self):
         SGMLParser.reset(self)
-        self.user_home_page_url = user_home_page_url
-        self.author_topic_dic = {}
-        self.in_tr = False
-        self.in_topic_url_td = False
-        self.in_nowrap_user_td = False
+        self.author_name_list = myStack(100)
+        self.author_link_list = myStack(100)
+        self.in_right_td = False
         self.in_user_a = False
-        self.url_stack = myStack()  # default length is 50, which is the default number of topics in douban topic page
-        self.user_url_stack = myStack()
-        self.username_stack = myStack()
-
-    def start_tr(self, attrs):
-        for k, v in attrs:
-            if k == 'class' and v == '':
-                self.in_tr = True
-
-    def end_tr(self):
-        self.in_tr = False
 
     def start_td(self, attrs):
-        if self.in_tr:
-            type(attrs)
-            if len(attrs) == 1:
-                for k, v in attrs:
-                    if k == "class" and v == "title":
-                        self.in_topic_url_td = True
-                    else:
-                        if k == "nowrap" and v == "nowrap":
-                            self.in_nowrap_user_td = True
-            else:
-                pass
-
+        if len(attrs) != 1:
+            pass
+        for k,v in attrs:
+            if k == 'nowrap' and v == 'nowrap':
+                self.in_right_td = True
 
     def end_td(self):
-        self.in_topic_url_td = False
-        self.in_nowrap_uer_td = False
+        self.in_right_td = False
 
     def start_a(self, attrs):
-        if self.in_topic_url_td:  # means in below td block
-            """
-            <td class="title">
-                    <a href="http://www.douban.com/group/topic/53090343/" title="【号外】那些明星大腕投资的网站，冠希那个太逗了" class="">【号外】那些明星大腕投资的网站，冠希那个太逗了</a>
-                </td>
-            """
+        need_check_class = False
+        """
+            <td nowrap="nowrap"><a href="http://www.douban.com/group/people/78284459/" class="">随便你吧</a></td>
+        """
+        if not self.in_right_td:
+            pass
+        elif len(attrs) != 2:
+            pass
+        else:
             for k, v in attrs:
-                if k == 'href':
-                    self.url_stack.push(v[0] if isinstance(v,
-                                                           list) else v) # push it in stack firstly, if can't find user later, pop it, may have performance issue, to be tested
-        elif self.in_nowrap_user_td:
-            """
-            <td nowrap="nowrap"><a href="http://www.douban.com/group/people/86194017/" class="">南笙</a></td>
-            """
-            for k, v in attrs:
-                if k == 'href':
-                    self.user_url_stack.push(v[0] if isinstance(v, list) else v)
-                    self.in_user_a = True
+                if k == 'href':  # href 先出现, 压栈
+                    self.author_link_list.push(v[0] if isinstance(v,list) else v)
+                    need_check_class = True
+                if k == 'class' and v == '':
+                    if need_check_class:
+                        need_check_class = False
 
+            if need_check_class: # 说明href后没有遇到class=""
+                self.author_link_list.pop()
+                need_check_class = False
+            else:
+                # 成功得到 username
+                self.in_user_a = True
+
+    def end_a(self):
+        self.in_user_a = False
 
     def handle_data(self, data):
         if self.in_user_a:
-            self.username_stack.push(data)
+            self.author_name_list.push(data)
 
 
+
+
+# 简单粗暴法
+
+def find_user_topic(content):
+    pass
+
+class group_lister(SGMLParser):
+    """
+    Get all groups that the specific user
+    """
+
+    def __init__(self):
+        SGMLParser.reset(self)
+        self.in_div = False
+        self.dic_name_href = {}
+        self.temp_key = None
+
+    def start_div(self, attrs):
+        for k,v in attrs:
+            if k == 'class' and v == 'title':
+                self.in_div = True
+
+    def end_div(self):
+        self.in_div = True
+
+    def start_a(self, attrs):
+        if self.in_div:
+            #print type(attrs)  #  it is tuple list
+            #print attrs
+            for k,v in attrs:
+                if k == 'title':
+                    self.dic_name_href[v] = ""
+                    self.temp_key = v
+                if k == 'href' and self.temp_key:
+                    self.dic_name_href[self.temp_key] = v
+                    self.temp_key = None
+
+    def get_name_href_dic(self):
+        return self.dic_name_href
+
+
+def find_user_topic_in_current_page_by_userlink(content,user_link):
+    index = content.find(user_link)
+    if index == -1:
+        print "failed to find user main page url in this page"
+    else:
+        return index
 
 if __name__ == '__main__':
-    al = author_lister('http://www.douban.com/group/people/60318558/')
-    content = urllib2.urlopen('http://www.douban.com/group/douban911/discussion?start=50').read()
-    al.feed(content)
-    print al.username_stack
+
+
+    #al = author_lister('http://www.douban.com/group/people/88915011/') # pass user home page url to the lister
+
+    #uf = discussion_page_user_finder('test.html',False)
+
+    #x = uf.find('http://www.douban.com/group/people/88915011/')
+    #print x
+    #content = urllib2.urlopen('http://www.douban.com/group/douban911/discussion?start=0').read()
+    #content = ff.read()
+
+    # 得到这个用户加入的所有小组
+    x = urllib2.urlopen('http://www.douban.com/group/people/88915011/joins').read()
+    gl = group_lister()
+    gl.feed(x)
+    print gl.dic_name_href
+
+    # 开始从第一个组里面找这个人发的帖子 以 加入了这个组 你就会很有钱为例 http://www.douban.com/group/douban911/ （麻痹， 我都加入了，也没变得有钱）
+    # 方便测试喜爱你去会
+    ff = open('test.html','r+')
+    #ff.write(urllib2.urlopen('http://www.douban.com/group/douban911/discussion?start=0').read())
+    content = ff.read()
+
+    print ""
+
