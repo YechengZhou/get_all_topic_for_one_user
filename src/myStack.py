@@ -10,10 +10,14 @@ class myStack():
     def __init__(self,size = 1000):
         self.stack = []
         self.top = -1
-        self.size = size
+        self.maxsize = size
+        self.size = 0
+
+    def index(self,n):
+        return self.stack[n]
 
     def is_full(self):
-        return len(self.stack) == self.size
+        return len(self.stack) == self.maxsize
 
     def is_empty(self):
         return len(self.stack) == 0
@@ -32,6 +36,7 @@ class myStack():
         else:
             self.stack.append(data)
             self.top += 1
+            self.size = self.top + 1
 
     def pop(self):
         if self.is_empty():
@@ -39,6 +44,7 @@ class myStack():
         else:
             data = self.stack[-1]
             self.top -= 1
+            self.size = self.top + 1
             del self.stack[-1]
             return data
 
