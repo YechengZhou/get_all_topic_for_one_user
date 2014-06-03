@@ -216,7 +216,14 @@ def find_user_topic_in_current_page_by_user_link(content, user_link):
 class douban_group_topic_finder_by_user_link():
     def __init__(self, user_link=None, user_name=None, pages = 10): # 默认抓取每个小组前10页的帖子，即25×10=250个
         self.user_link = user_link
-        self.user_joins_link = (user_link + "joins/") if user_link[-1] == '/' else (user_link + "/joins/")
+        # check if it is group main page for a user
+        if self.user_link.find('group') != -1:
+            pass
+        else:
+            people_index = self.user_link.find('people')
+            self.user_link = user_link[:people_index] + "group/" + user_link[people_index:]
+
+        self.user_joins_link = (self.user_link + "joins/") if self.user_link[-1] == '/' else (self.user_link + "/joins/")
         print self.user_joins_link
         self.user_name = user_name
         self.joined_group_dic = None  # key is topic name and value is topic url
@@ -241,7 +248,7 @@ class douban_group_topic_finder_by_user_link():
             #logging.DEBUG("scraping group %s, link %s" % k,self.joined_group_dic[k])
             #http://www.douban.com/group/douban911/discussion?start=0
             self.joined_group_dic[k] += "discussion"
-            # TODO 遍历帖子
+            # 遍历帖子
             for i in range(self.pages): # 遍历10页帖子
                 this_page_url = self.joined_group_dic[k] + "?start=" + str(i * 25)
                 print "this page :", this_page_url
@@ -261,29 +268,20 @@ class douban_group_topic_finder_by_user_link():
                                 self.topic_by_this_user.append(
                                     ( tl.topic_name_list.index(j), tl.topic_link_list.index(j) ))
 
+    def print_result(self):
+        for i in self.topic_by_this_user:
+            print "Topic Name: %s && Topic Link: %s" % (i[0],i[1])
+
+    def get_result(self):
+        return self.topic_by_this_user
+
+
 
 if __name__ == '__main__':
-    #al = author_lister('http://www.douban.com/group/people/88915011/') # pass user home page url to the lister
 
-    #uf = discussion_page_user_finder('test.html',False)
-
-    #x = uf.find('http://www.douban.com/group/people/88915011/')
-    #print x
-    #content = urllib2.urlopen('http://www.douban.com/group/douban911/discussion?start=0').read()
-    #content = ff.read()
-    #df = douban_group_topic_finder_by_user_link()
-    # 得到这个用户加入的所有小组
-    """
-    x = urllib2.urlopen('http://www.douban.com/group/people/juliandawn/joins').read()
-    gl = group_lister()
-    gl.feed(x)
-    print gl.dic_name_href
-    """
-
-    df = douban_group_topic_finder_by_user_link(user_link='http://www.douban.com/group/people/68363866/')
+    df = douban_group_topic_finder_by_user_link(user_link='http://www.douban.com/people/73688708/',pages = 100)  # TODO page默认的时候搜索小组的所有帖子
     df.find_user_topics()
-    for i in df.topic_by_this_user:
-        print "Topic Name: %s && Topic Link: %s" % (i[0],i[1])
+    df.print_result()
 
 
 
